@@ -3,7 +3,7 @@
 import asyncio
 import bluetooth
 import aioble
-from machine import Pin
+import rp2
 from time import ticks_ms, ticks_diff
 
 
@@ -13,8 +13,7 @@ UART_RX = bluetooth.UUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e")
 # Copy the exact advertised name printed during scanning if several boards exist.
 TARGET_NAME = None
 
-# External normally-open button: GP15 (physical pin 20) to GND (pin 18).
-BUTTON_PIN = 15
+# rp2.bootsel_button() returns 1 when the built-in BOOTSEL button is pressed.
 DEBOUNCE_MS = 50
 
 
@@ -56,7 +55,6 @@ class MicrobitLED:
 
 
 async def main():
-    button = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
     while True:
         try:
             print("Scanning for micro:bit...")
@@ -76,19 +74,19 @@ async def main():
                 display = MicrobitLED(rx)
                 await display.off()
                 state = 0
-                last_reading = button.value()
+                last_reading = rp2.bootsel_button()
                 stable_reading = last_reading
                 changed_at = ticks_ms()
-                print("Connected. Press the GP15 button to change the display.")
+                print("Connected. Press BOOTSEL to change the display.")
                 while connection.is_connected():
-                    reading = button.value()
+                    reading = rp2.bootsel_button()
                     if reading != last_reading:
                         last_reading = reading
                         changed_at = ticks_ms()
                     if (reading != stable_reading and
                             ticks_diff(ticks_ms(), changed_at) >= DEBOUNCE_MS):
                         stable_reading = reading
-                        if stable_reading == 0:
+                        if stable_reading == 1:
                             # Advance only on a debounced press, not while held.
                             state = (state + 1) % 4
                             if state == 1:
